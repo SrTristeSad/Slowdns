@@ -1,6 +1,6 @@
 #!/bin/bash
 arquivo=~/dnstt-client
-serv=t.rgntunnel.online
+serv=t.igordesign.xyz
 chave=a23f48bfac51fc95d0312cc24f21eef62c36099bbc3f87d323bc7e622b10453c
 dns1=8.8.8.8
 dns2=1.1.1.1
