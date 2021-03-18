@@ -14,8 +14,10 @@ Menu() {
 # RGNET VPN                             
 # VERSAO 2.0                                            
 # SLOW DNS TUNNEL
-#——————————————————                                     
-PINK='\033[1;31m'                                        GREEN='\033[1;32m'                                      YELLOW='\033[1;33m'                                     CORTITLE='\033[1;41m'                                   SCOLOR='\033[0m'
+#—————————————————— 
+
+BLUE='\033[0;34m'    
+RED='\033[1;31m'                                        GREEN='\033[1;32m'                                      YELLOW='\033[1;33m'                                     CORTITLE='\033[1;41m'                                   SCOLOR='\033[0m'
 banner='                                                
  ___ _    _____      _____  _  _ ___
 / __| |  / _ \ \    / /   \| \| / __|
@@ -25,15 +27,15 @@ banner='
 echo -e "${CORTITLE}=====================================${SCOLOR}"
 echo -e "${CORTITLE}       RGNTUNNEL CLIENTE SLOWDNS     ${SCOLOR}"
 echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${RED}$banner${SCOLOR}"
+echo -e "${GREEN}$banner${SCOLOR}"
 echo ""
      echo -e "${PINK}[ 1 ] | INSTALAR SLOWDNS${SCOLOR}"
-     echo -e "${YELLOW}=====================================${SCOLOR}"
-     echo -e "${PINK}[ 2 ] | SLOWDNS GOOGLE${SCOLOR}"
-     echo -e "${PINK}[ 3 ] | SLOWDNS CLOUDFARE${SCOLOR}"
-     echo -e "${PINK}[ 4 ] | SLOWDNS OPENDNS${SCOLOR}"
-     echo -e "${YELLOW}=====================================${SCOLOR}"
-     echo -e "${PINK}[ 0 ] | SAIR${SCOLOR}"
+     echo -e "${RED}=====================================${SCOLOR}"
+     echo -e "${BLUE}[ 2 ] | SLOWDNS GOOGLE${SCOLOR}"
+     echo -e "${BLUE}[ 3 ] | SLOWDNS CLOUDFARE${SCOLOR}"
+     echo -e "${BLUE}[ 4 ] | SLOWDNS OPENDNS${SCOLOR}"
+     echo -e "${RED}=====================================${SCOLOR}"
+     echo -e "${BLUE}[ 0 ] | SAIR${SCOLOR}"
     echo -e '\n'
      echo -e "${GREEN}RESPOSTA: ${SCOLOR}"
     read opcao
@@ -56,7 +58,7 @@ echo -e "${CORTITLE} DESLIGUE O WIFFI LIGUE OS DADOS MOVEIS  ${SCOLOR}"
 echo -e "${CORTITLE} SELECIONE EM VOLTAR E ESCOLHA AS OPÇÕES ${SCOLOR}"
 echo -e "${CORTITLE} DO DNS E DEPOIS LIGUE A VPN             ${SCOLOR}"
 echo -e "${CORTITLE}=========================================${SCOLOR}"
-Q
+
 else
 clear
 echo -e "${GREEN}=========================================${SCOLOR}"
@@ -140,7 +142,7 @@ sh $HOME/dns1 &>/dev/null &
 echo -e "${CORTITLE}=====================================${SCOLOR}"
 echo -e "${CORTITLE}        CLIENTE SLOWDNS INICIADO     ${SCOLOR}"
 echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${RED}$banner${SCOLOR}"
+echo -e "${GREEN}$banner${SCOLOR}"
 echo ""
 echo -e "\n${RED}[${GREEN}√${RED}]${SCOLOR} - ${GREEN}SLOWDNS INICIADO!${SCOLOR} - ${RED}[${GREEN}√${RED}]\n\n${RED}[${YELLOW}!${RED}] ${YELLOW}AGORA CONECTE-SE EM UM APP VPN\nOU CLICK EM ${GREEN}ENTER ${RED}PARA DESCONECTAR ${SCOLOR}"; read
 piddns=$(ps x| grep -w 'dns' | grep -v 'grep'| awk -F' ' {'print $1'})
@@ -163,7 +165,7 @@ sh $HOME/dns2 &>/dev/null &
 echo -e "${CORTITLE}=====================================${SCOLOR}"
 echo -e "${CORTITLE}        CLIENTE SLOWDNS INICIADO     ${SCOLOR}"
 echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${RED}$banner${SCOLOR}"
+echo -e "${GREEN}$banner${SCOLOR}"
 echo ""
 echo -e "\n${RED}[${GREEN}√${RED}]${SCOLOR} - ${GREEN}SLOWDNS INICIADO!${SCOLOR} - ${RED}[${GREEN}√${RED}]\n\n${RED}[${YELLOW}!${RED}] ${YELLOW}AGORA CONECTE-SE EM UM APP VPN\nOU CLICK EM ${GREEN}ENTER ${RED}PARA DESCONECTAR ${SCOLOR}"; read
 piddns=$(ps x| grep -w 'dns' | grep -v 'grep'| awk -F' ' {'print $1'})
@@ -185,7 +187,7 @@ sh $HOME/dns3 &>/dev/null &
 echo -e "${CORTITLE}=====================================${SCOLOR}"
 echo -e "${CORTITLE}        CLIENTE SLOWDNS INICIADO     ${SCOLOR}"
 echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${RED}$banner${SCOLOR}"
+echo -e "${GREEN}$banner${SCOLOR}"
 echo ""
 echo -e "\n${RED}[${GREEN}√${RED}]${SCOLOR} - ${GREEN}SLOWDNS INICIADO!${SCOLOR} - ${RED}[${GREEN}√${RED}]\n\n${RED}[${YELLOW}!${RED}] ${YELLOW}AGORA CONECTE-SE EM UM APP VPN\nOU CLICK EM ${GREEN}ENTER ${RED}PARA DESCONECTAR ${SCOLOR}"; read
 piddns=$(ps x| grep -w 'dns' | grep -v 'grep'| awk -F' ' {'print $1'})
