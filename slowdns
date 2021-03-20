@@ -1,6 +1,6 @@
 #!/bin/bash
 arquivo=~/dnstt-client
-serv=t.srtriste.cloudns.cl
+serv=n.srtriste.cloudns.cl
 chave=2f3ce5f4fdd781509063e95a125becec9ed93ed2fa64f070591d371f4e9b8246
 dns1=8.8.8.8
 dns2=1.1.1.1
