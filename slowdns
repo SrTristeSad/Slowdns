@@ -1,209 +1,221 @@
-#!/bin/bash
-arquivo=~/dnstt-client
-serv=t.srtriste.cloudns.cl
-chave=2f3ce5f4fdd781509063e95a125becec9ed93ed2fa64f070591d371f4e9b8246
-dns1=8.8.8.8
-dns2=1.1.1.1
-dns3=208.67.222.222
-clear
-Menu() {
-    clear
-    echo -e '\n'
-    clear
-#——————————————————                                     
-# RGNET VPN                             
-# VERSAO 2.0                                            
-# SLOW DNS TUNNEL
-#—————————————————— 
+#!/data/data/com.termux/files/usr/bin/bash
+set -u
 
-BLUE='\033[0;34m'    
-RED='\033[1;31m'                                        GREEN='\033[1;32m'                                      YELLOW='\033[1;33m'                                     CORTITLE='\033[45;1;37m'                SCOLOR='\033[0;37m'
-banner='                                                
- ___ _    _____      _____  _  _ ___
-/ __| |  / _ \ \    / /   \| \| / __|
-\__ \ |_| (_) \ \/\/ /| |) | .  \__ \
-|___/____\___/ \_/\_/ |___/|_|\_|___/'
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/slowdns"
+CONFIG_FILE="$CONFIG_DIR/config"
+PID_FILE="$CONFIG_DIR/dnstt.pid"
+LOG_FILE="$CONFIG_DIR/dnstt.log"
+DNSTT_BIN="${PREFIX:-/data/data/com.termux/files/usr}/bin/dnstt-client"
 
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${CORTITLE}       RGNTUNNEL CLIENTE SLOWDNS     ${SCOLOR}"
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${GREEN}$banner${SCOLOR}"
-echo ""
-     echo -e "${YELLOW}[ 1 ] | INSTALAR SLOWDNS${SCOLOR}"
-     echo -e "${RED}=====================================${SCOLOR}"
-     echo -e "${BLUE}[ 2 ] | SLOWDNS GOOGLE${SCOLOR}"
-     echo -e "${BLUE}[ 3 ] | SLOWDNS CLOUDFARE${SCOLOR}"
-     echo -e "${BLUE}[ 4 ] | SLOWDNS OPENDNS${SCOLOR}"
-     echo -e "${RED}=====================================${SCOLOR}"
-     echo -e "${BLUE}[ 0 ] | SAIR${SCOLOR}"
-    echo -e '\n'
-     echo -e "${GREEN}RESPOSTA: ${SCOLOR}"
-    read opcao
-    case $opcao in
-    1) Opcao1 ;;
-    2) Opcao2 ;;
-    3) Opcao3 ;;
-    4) Opcao4 ;;
-    0) Sair ;;
-    *) "Comando desconhecido" ; echo ; Menu;;
-    esac
-    }
+mkdir -p "$CONFIG_DIR"
 
-Opcao1 () {
-clear
-if [ -e $arquivo ]; then
-echo -e "${CORTITLE}=========================================${SCOLOR}"
-echo -e "${CORTITLE} SLOWDNS JÁ INSTALADO                    ${SCOLOR}"
-echo -e "${CORTITLE} DESLIGUE O WIFFI LIGUE OS DADOS MOVEIS  ${SCOLOR}"
-echo -e "${CORTITLE} SELECIONE EM VOLTAR E ESCOLHA AS OPÇÕES ${SCOLOR}"
-echo -e "${CORTITLE} DO DNS E DEPOIS LIGUE A VPN             ${SCOLOR}"
-echo -e "${CORTITLE}=========================================${SCOLOR}"
+red='\033[1;31m'
+green='\033[1;32m'
+yellow='\033[1;33m'
+blue='\033[1;34m'
+reset='\033[0m'
 
-else
-clear
-echo -e "${GREEN}=========================================${SCOLOR}"
-echo -e "${CORTITLE}INSTALANDO GIT... ${SCOLOR}"
-echo -e "${GREEN}=========================================${SCOLOR}"
-pkg install git -y > /dev/null 2>&1
-echo -e "${CORTITLE}GIT INSTALADO${SCOLOR}"
-echo -e "${GREEN}=========================================${SCOLOR}"
-echo -e "${CORTITLE}BAIXANDO GO...${SCOLOR}"
-echo -e "${GREEN}=========================================${SCOLOR}"
-pkg install golang -y > /dev/null 2>&1
-echo -e "${CORTITLE}GO INSTALADO${SCOLOR}"
-echo -e "${GREEN}=========================================${SCOLOR}"
-echo -e "${CORTITLE}BAIXANDO DNSTT${SCOLOR}"
-echo -e "${GREEN}=========================================${SCOLOR}"
-git clone https://www.bamsoftware.com/git/dnstt.git > /dev/null 2>&1
-echo -e "${CORTITLE}DNSTT INSTALADO${SCOLOR}"
-echo -e "${GREEN}=========================================${SCOLOR}"
-touch ~/dnstt/dnstt-client/dns
-echo "#!/bin/sh" >> ~/dnstt/dnstt-client/dns
-echo "go build"  >> ~/dnstt/dnstt-client/dns
-chmod  777 ~/dnstt/dnstt-client/dns
-cd ~/dnstt/dnstt-client&&./dns /dev/null 2>&1&&mv dnstt-client ~
-touch ~/server.pub
-echo  > ~/server.pub
-echo "$chave" >> ~/server.pub
-touch ~/dns1
-touch ~/dns2
-touch ~/dns3
-echo  > ~/dns1
-echo  > ~/dns2
-echo  > ~/dns3
-echo "#!/bin/bash" >> ~/dns1
-echo "#!/bin/bash" >> ~/dns2
-echo "#!/bin/bash" >> ~/dns3
-echo "./dnstt-client -udp $dns1:53   -pubkey $chave $serv 127.0.0.1:2222 > /dev/null 2>&1" >> ~/dns1
-echo "./dnstt-client -udp $dns2:53   -pubkey $chave $serv 127.0.0.1:2222" > /dev/null 2>&1 >> ~/dns2
-echo "./dnstt-client -udp $dns3:53   -pubkey $chave $serv 127.0.0.1:2222" > /dev/null 2>&1 >> ~/dns3
-chmod 777 ~/dns1
-chmod 777 ~/dns2
-chmod 777 ~/dns3
-rm ~/dnstt/dnstt-client/dns > /dev/null 2>&1
-    yes| termux-setup-storage > /dev/null 2>&1
-    cd $HOME
-    cp ~/slowdns $PREFIX/bin/slowdns
-    chmod +x $PREFIX/bin/slowdns
-    [[ $(grep -c 'slowdns' $PREFIX/etc/profile) == '0' ]] && echo 'slowdns' >> $PREFIX/etc/profile
-clear
-echo -e "${CORTITLE}=========================================${SCOLOR}"
-echo -e "${CORTITLE} SLOWDNS    INSTALADO                    ${SCOLOR}"
-echo -e "${CORTITLE} DESLIGUE O WIFFI LIGUE OS DADOS MOVEIS  ${SCOLOR}"
-echo -e "${CORTITLE} SELECIONE EM VOLTAR E ESCOLHA AS OPÇÕES ${SCOLOR}"
-echo -e "${CORTITLE} DO DNS E DEPOIS LIGUE A VPN             ${SCOLOR}"
-echo -e "${CORTITLE}=========================================${SCOLOR}"
-fi
-echo -e "${RED}=====================================${SCOLOR}"
-echo -e "${BLUE} O QUE DESEJA FAZER?${SCOLOR}"
-echo -e "${RED}=====================================${SCOLOR}"
-echo -e "${BLUE}[ 1 ] VOLTAR${SCOLOR}"
-echo -e "${BLUE}[ 0 ] SAIR${SCOLOR}"
-echo -e "${RED}=====================================${SCOLOR}"
-   
-    read opcao
-    case $opcao in
-    1) Voltar ;;
-    0) Sair ;;
-    *) "Comando desconhecido" ; echo ; Opcao1 ;;
+say() { printf '%b\n' "$*"; }
+
+need_bin() {
+    if [[ ! -x "$DNSTT_BIN" ]]; then
+        say "${red}dnstt-client não encontrado.${reset}"
+        say "Execute primeiro: bash client/install-termux.sh"
+        exit 1
+    fi
+}
+
+load_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        say "${yellow}SlowDNS ainda não foi configurado.${reset}"
+        configure
+    fi
+
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+    : "${TUNNEL_DOMAIN:?TUNNEL_DOMAIN ausente}"
+    : "${PUBKEY:?PUBKEY ausente}"
+    DNS_RESOLVER="${DNS_RESOLVER:-8.8.8.8}"
+    LOCAL_ADDR="${LOCAL_ADDR:-127.0.0.1:2222}"
+}
+
+resolver_value() {
+    case "${1:-}" in
+        google|Google|GOOGLE) echo "8.8.8.8" ;;
+        cloudflare|Cloudflare|CLOUDFLARE) echo "1.1.1.1" ;;
+        quad9|Quad9|QUAD9) echo "9.9.9.9" ;;
+        opendns|OpenDNS|OPENDNS) echo "208.67.222.222" ;;
+        "") echo "$DNS_RESOLVER" ;;
+        *) echo "$1" ;;
     esac
 }
 
-Opcao2 () {
-clear
-sh $HOME/dns1 &>/dev/null &
-    clear
-   banner='                                                
- ___ _    _____      _____  _  _ ___
-/ __| |  / _ \ \    / /   \| \| / __|
-\__ \ |_| (_) \ \/\/ /| |) | .  \__ \
-|___/____\___/ \_/\_/ |___/|_|\_|___/'
-
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${CORTITLE}        CLIENTE SLOWDNS INICIADO     ${SCOLOR}"
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${GREEN}$banner${SCOLOR}"
-echo ""
-echo -e "\n${RED}[${GREEN}√${RED}]${SCOLOR} - ${GREEN}SLOWDNS INICIADO!${SCOLOR} - ${RED}[${GREEN}√${RED}]\n\n${RED}[${YELLOW}!${RED}] ${YELLOW}AGORA CONECTE-SE EM UM APP VPN\nOU CLICK EM ${GREEN}ENTER ${RED}PARA DESCONECTAR ${SCOLOR}"; read
-piddns=$(ps x| grep -w 'dns' | grep -v 'grep'| awk -F' ' {'print $1'})
-[[ ${piddns} != '' ]] && kill ${piddns} > /dev/null 2>&1
-pkill dns
-clear
-
+is_running() {
+    [[ -f "$PID_FILE" ]] || return 1
+    local pid
+    pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
 }
 
-Opcao3 () {
-    clear
-sh $HOME/dns2 &>/dev/null &
-    clear
-   banner='                                                
- ___ _    _____      _____  _  _ ___
-/ __| |  / _ \ \    / /   \| \| / __|
-\__ \ |_| (_) \ \/\/ /| |) | .  \__ \
-|___/____\___/ \_/\_/ |___/|_|\_|___/'
+configure() {
+    mkdir -p "$CONFIG_DIR"
 
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${CORTITLE}        CLIENTE SLOWDNS INICIADO     ${SCOLOR}"
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${GREEN}$banner${SCOLOR}"
-echo ""
-echo -e "\n${RED}[${GREEN}√${RED}]${SCOLOR} - ${GREEN}SLOWDNS INICIADO!${SCOLOR} - ${RED}[${GREEN}√${RED}]\n\n${RED}[${YELLOW}!${RED}] ${YELLOW}AGORA CONECTE-SE EM UM APP VPN\nOU CLICK EM ${GREEN}ENTER ${RED}PARA DESCONECTAR ${SCOLOR}"; read
-piddns=$(ps x| grep -w 'dns' | grep -v 'grep'| awk -F' ' {'print $1'})
-[[ ${piddns} != '' ]] && kill ${piddns} > /dev/null 2>&1
-pkill dns
-clear
+    local old_domain="" old_pubkey="" old_dns="8.8.8.8" old_local="127.0.0.1:2222"
+    if [[ -f "$CONFIG_FILE" ]]; then
+        # shellcheck disable=SC1090
+        source "$CONFIG_FILE" || true
+        old_domain="${TUNNEL_DOMAIN:-}"
+        old_pubkey="${PUBKEY:-}"
+        old_dns="${DNS_RESOLVER:-8.8.8.8}"
+        old_local="${LOCAL_ADDR:-127.0.0.1:2222}"
+    fi
+
+    say "${blue}=== Configuração SlowDNS ===${reset}"
+    read -r -p "Domínio do túnel [${old_domain:-t.exemplo.com}]: " domain
+    domain="${domain:-$old_domain}"
+    read -r -p "Chave pública do servidor: " pubkey
+    pubkey="${pubkey:-$old_pubkey}"
+    read -r -p "DNS recursivo [$old_dns]: " dns
+    dns="${dns:-$old_dns}"
+    read -r -p "Porta local [$old_local]: " local_addr
+    local_addr="${local_addr:-$old_local}"
+
+    if [[ -z "$domain" || -z "$pubkey" ]]; then
+        say "${red}Domínio e chave pública são obrigatórios.${reset}"
+        return 1
+    fi
+
+    if [[ ! "$pubkey" =~ ^[0-9a-fA-F]{64}$ ]]; then
+        say "${red}A chave pública deve ter 64 caracteres hexadecimais.${reset}"
+        return 1
+    fi
+
+    {
+        printf 'TUNNEL_DOMAIN=%q\n' "$domain"
+        printf 'PUBKEY=%q\n' "$pubkey"
+        printf 'DNS_RESOLVER=%q\n' "$dns"
+        printf 'LOCAL_ADDR=%q\n' "$local_addr"
+    } > "$CONFIG_FILE"
+    chmod 600 "$CONFIG_FILE"
+    say "${green}Configuração salva em $CONFIG_FILE${reset}"
 }
 
-Opcao4 () {
-clear
-sh $HOME/dns3 &>/dev/null &
-    clear
-   banner='                                                
- ___ _    _____      _____  _  _ ___
-/ __| |  / _ \ \    / /   \| \| / __|
-\__ \ |_| (_) \ \/\/ /| |) | .  \__ \
-|___/____\___/ \_/\_/ |___/|_|\_|___/'
+start_tunnel() {
+    need_bin
+    load_config
 
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${CORTITLE}        CLIENTE SLOWDNS INICIADO     ${SCOLOR}"
-echo -e "${CORTITLE}=====================================${SCOLOR}"
-echo -e "${GREEN}$banner${SCOLOR}"
-echo ""
-echo -e "\n${RED}[${GREEN}√${RED}]${SCOLOR} - ${GREEN}SLOWDNS INICIADO!${SCOLOR} - ${RED}[${GREEN}√${RED}]\n\n${RED}[${YELLOW}!${RED}] ${YELLOW}AGORA CONECTE-SE EM UM APP VPN\nOU CLICK EM ${GREEN}ENTER ${RED}PARA DESCONECTAR ${SCOLOR}"; read
-piddns=$(ps x| grep -w 'dns' | grep -v 'grep'| awk -F' ' {'print $1'})
-[[ ${piddns} != '' ]] && kill ${piddns} > /dev/null 2>&1
-pkill dns
-clear
+    if is_running; then
+        say "${yellow}SlowDNS já está rodando (PID $(cat "$PID_FILE")).${reset}"
+        return 0
+    fi
+
+    local resolver
+    resolver="$(resolver_value "${1:-}")"
+    : > "$LOG_FILE"
+
+    say "${blue}Iniciando DNSTT...${reset}"
+    say "Domínio : $TUNNEL_DOMAIN"
+    say "Resolver: $resolver:53"
+    say "Local   : $LOCAL_ADDR"
+
+    nohup "$DNSTT_BIN" \
+        -udp "$resolver:53" \
+        -pubkey "$PUBKEY" \
+        "$TUNNEL_DOMAIN" \
+        "$LOCAL_ADDR" >>"$LOG_FILE" 2>&1 &
+
+    echo $! > "$PID_FILE"
+    sleep 1
+
+    if is_running; then
+        say "${green}SlowDNS iniciado (PID $(cat "$PID_FILE")).${reset}"
+        say "Log: $LOG_FILE"
+        say "Exemplo SSH: ssh -p ${LOCAL_ADDR##*:} usuario@127.0.0.1"
+    else
+        say "${red}Falha ao iniciar.${reset}"
+        rm -f "$PID_FILE"
+        tail -n 30 "$LOG_FILE" 2>/dev/null || true
+        return 1
+    fi
 }
 
-Voltar() {
-clear
-Menu
+stop_tunnel() {
+    if ! is_running; then
+        rm -f "$PID_FILE"
+        say "${yellow}SlowDNS não está rodando.${reset}"
+        return 0
+    fi
+
+    local pid
+    pid="$(cat "$PID_FILE")"
+    kill "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5; do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.2
+    done
+    kill -9 "$pid" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    say "${green}SlowDNS parado.${reset}"
 }
 
-Sair() {
-clear
-exit
+status_tunnel() {
+    if is_running; then
+        say "${green}SlowDNS ativo (PID $(cat "$PID_FILE")).${reset}"
+    else
+        say "${yellow}SlowDNS parado.${reset}"
+        rm -f "$PID_FILE"
+    fi
 }
-clear
-Menu
+
+show_log() {
+    touch "$LOG_FILE"
+    tail -n 60 "$LOG_FILE"
+}
+
+menu() {
+    while true; do
+        clear
+        say "${blue}=====================================${reset}"
+        say "${blue}          SLOWDNS / DNSTT            ${reset}"
+        say "${blue}=====================================${reset}"
+        echo "1) Conectar - Google DNS"
+        echo "2) Conectar - Cloudflare"
+        echo "3) Conectar - Quad9"
+        echo "4) Conectar - OpenDNS"
+        echo "5) Configurar servidor"
+        echo "6) Status"
+        echo "7) Ver log"
+        echo "8) Desconectar"
+        echo "0) Sair"
+        echo
+        read -r -p "Escolha: " option
+        case "$option" in
+            1) start_tunnel google ;;
+            2) start_tunnel cloudflare ;;
+            3) start_tunnel quad9 ;;
+            4) start_tunnel opendns ;;
+            5) configure ;;
+            6) status_tunnel ;;
+            7) show_log ;;
+            8) stop_tunnel ;;
+            0) exit 0 ;;
+            *) say "${red}Opção inválida.${reset}" ;;
+        esac
+        echo
+        read -r -p "ENTER para continuar..." _
+    done
+}
+
+case "${1:-menu}" in
+    start|connect) start_tunnel "${2:-}" ;;
+    stop|disconnect) stop_tunnel ;;
+    restart) stop_tunnel; start_tunnel "${2:-}" ;;
+    status) status_tunnel ;;
+    config|configure) configure ;;
+    log|logs) show_log ;;
+    menu) menu ;;
+    *)
+        echo "Uso: slowdns {start [google|cloudflare|quad9|opendns|IP]|stop|restart|status|config|log|menu}"
+        exit 1
+        ;;
+esac
