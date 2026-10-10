@@ -1,0 +1,31 @@
+name: SlowDNS CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Validate Bash syntax
+        run: |
+          bash -n slowdns
+          bash -n client/install-termux.sh
+          bash -n server/install.sh
+          bash -n server/doctor.sh
+          bash -n lab/local-test.sh
+
+      - name: Run local DNSTT tunnel test
+        run: bash lab/local-test.sh
