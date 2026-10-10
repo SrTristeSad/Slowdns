@@ -1,10 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -u
 
+VERSION="3.0.0"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/slowdns"
 CONFIG_FILE="$CONFIG_DIR/config"
 PID_FILE="$CONFIG_DIR/dnstt.pid"
 LOG_FILE="$CONFIG_DIR/dnstt.log"
+LAST_FILE="$CONFIG_DIR/last-session"
 DNSTT_BIN="${PREFIX:-/data/data/com.termux/files/usr}/bin/dnstt-client"
 
 mkdir -p "$CONFIG_DIR"
@@ -13,14 +15,39 @@ red='\033[1;31m'
 green='\033[1;32m'
 yellow='\033[1;33m'
 blue='\033[1;34m'
+cyan='\033[1;36m'
 reset='\033[0m'
 
 say() { printf '%b\n' "$*"; }
 
+usage() {
+    cat <<'USAGE'
+SlowDNS 3 - cliente DNSTT para Termux
+
+Uso:
+  slowdns                         abre o menu
+  slowdns config                  configura domínio/chave
+  slowdns start [perfil]          inicia o túnel
+  slowdns start udp [IP]          UDP DNS (porta 53)
+  slowdns start doh [URL]         DNS-over-HTTPS
+  slowdns start dot [HOST:PORT]   DNS-over-TLS
+  slowdns stop                    encerra o túnel
+  slowdns restart [perfil]        reinicia
+  slowdns status                  mostra o estado
+  slowdns doctor                  diagnóstico local/DNS
+  slowdns logs                    mostra os últimos logs
+  slowdns version                 mostra a versão
+
+Perfis UDP: google, cloudflare, quad9, opendns
+Perfis DoH: doh-google, doh-cloudflare
+Perfis DoT: dot-google, dot-cloudflare
+USAGE
+}
+
 need_bin() {
     if [[ ! -x "$DNSTT_BIN" ]]; then
         say "${red}dnstt-client não encontrado.${reset}"
-        say "Execute primeiro: bash client/install-termux.sh"
+        say "Execute: bash client/install-termux.sh"
         exit 1
     fi
 }
@@ -28,7 +55,7 @@ need_bin() {
 load_config() {
     if [[ ! -f "$CONFIG_FILE" ]]; then
         say "${yellow}SlowDNS ainda não foi configurado.${reset}"
-        configure
+        configure || return 1
     fi
 
     # shellcheck disable=SC1090
@@ -37,6 +64,9 @@ load_config() {
     : "${PUBKEY:?PUBKEY ausente}"
     DNS_RESOLVER="${DNS_RESOLVER:-8.8.8.8}"
     LOCAL_ADDR="${LOCAL_ADDR:-127.0.0.1:2222}"
+    DEFAULT_TRANSPORT="${DEFAULT_TRANSPORT:-udp}"
+    DOH_URL="${DOH_URL:-https://dns.google/dns-query}"
+    DOT_ADDR="${DOT_ADDR:-8.8.8.8:853}"
 }
 
 resolver_value() {
@@ -45,7 +75,7 @@ resolver_value() {
         cloudflare|Cloudflare|CLOUDFLARE) echo "1.1.1.1" ;;
         quad9|Quad9|QUAD9) echo "9.9.9.9" ;;
         opendns|OpenDNS|OPENDNS) echo "208.67.222.222" ;;
-        "") echo "$DNS_RESOLVER" ;;
+        "") echo "${DNS_RESOLVER:-8.8.8.8}" ;;
         *) echo "$1" ;;
     esac
 }
@@ -60,7 +90,10 @@ is_running() {
 configure() {
     mkdir -p "$CONFIG_DIR"
 
-    local old_domain="" old_pubkey="" old_dns="8.8.8.8" old_local="127.0.0.1:2222"
+    local old_domain="" old_pubkey="" old_dns="8.8.8.8"
+    local old_local="127.0.0.1:2222" old_transport="udp"
+    local old_doh="https://dns.google/dns-query" old_dot="8.8.8.8:853"
+
     if [[ -f "$CONFIG_FILE" ]]; then
         # shellcheck disable=SC1090
         source "$CONFIG_FILE" || true
@@ -68,25 +101,45 @@ configure() {
         old_pubkey="${PUBKEY:-}"
         old_dns="${DNS_RESOLVER:-8.8.8.8}"
         old_local="${LOCAL_ADDR:-127.0.0.1:2222}"
+        old_transport="${DEFAULT_TRANSPORT:-udp}"
+        old_doh="${DOH_URL:-https://dns.google/dns-query}"
+        old_dot="${DOT_ADDR:-8.8.8.8:853}"
     fi
 
     say "${blue}=== Configuração SlowDNS ===${reset}"
     read -r -p "Domínio do túnel [${old_domain:-t.exemplo.com}]: " domain
     domain="${domain:-$old_domain}"
-    read -r -p "Chave pública do servidor: " pubkey
+    read -r -p "Chave pública do servidor [manter atual com ENTER]: " pubkey
     pubkey="${pubkey:-$old_pubkey}"
-    read -r -p "DNS recursivo [$old_dns]: " dns
+    read -r -p "DNS UDP padrão [$old_dns]: " dns
     dns="${dns:-$old_dns}"
-    read -r -p "Porta local [$old_local]: " local_addr
+    read -r -p "Endereço local [$old_local]: " local_addr
     local_addr="${local_addr:-$old_local}"
+    read -r -p "Transporte padrão (udp/doh/dot) [$old_transport]: " transport
+    transport="${transport:-$old_transport}"
+    read -r -p "URL DoH [$old_doh]: " doh
+    doh="${doh:-$old_doh}"
+    read -r -p "Servidor DoT [$old_dot]: " dot
+    dot="${dot:-$old_dot}"
 
     if [[ -z "$domain" || -z "$pubkey" ]]; then
         say "${red}Domínio e chave pública são obrigatórios.${reset}"
         return 1
     fi
-
+    if [[ ! "$domain" =~ ^([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]]; then
+        say "${red}Domínio inválido: $domain${reset}"
+        return 1
+    fi
     if [[ ! "$pubkey" =~ ^[0-9a-fA-F]{64}$ ]]; then
         say "${red}A chave pública deve ter 64 caracteres hexadecimais.${reset}"
+        return 1
+    fi
+    case "$transport" in
+        udp|doh|dot) ;;
+        *) say "${red}Transporte deve ser udp, doh ou dot.${reset}"; return 1 ;;
+    esac
+    if [[ ! "$local_addr" =~ ^[^:]+:[0-9]{1,5}$ ]]; then
+        say "${red}Endereço local inválido. Exemplo: 127.0.0.1:2222${reset}"
         return 1
     fi
 
@@ -95,42 +148,98 @@ configure() {
         printf 'PUBKEY=%q\n' "$pubkey"
         printf 'DNS_RESOLVER=%q\n' "$dns"
         printf 'LOCAL_ADDR=%q\n' "$local_addr"
+        printf 'DEFAULT_TRANSPORT=%q\n' "$transport"
+        printf 'DOH_URL=%q\n' "$doh"
+        printf 'DOT_ADDR=%q\n' "$dot"
     } > "$CONFIG_FILE"
     chmod 600 "$CONFIG_FILE"
     say "${green}Configuração salva em $CONFIG_FILE${reset}"
 }
 
+transport_args() {
+    local profile="${1:-}" value="${2:-}"
+    TRANSPORT_LABEL=""
+    DNSTT_REMOTE_ARGS=()
+
+    case "$profile" in
+        google|cloudflare|quad9|opendns)
+            value="$(resolver_value "$profile")"
+            DNSTT_REMOTE_ARGS=(-udp "$value:53")
+            TRANSPORT_LABEL="UDP $value:53"
+            ;;
+        doh-google)
+            DNSTT_REMOTE_ARGS=(-doh "https://dns.google/dns-query")
+            TRANSPORT_LABEL="DoH Google"
+            ;;
+        doh-cloudflare)
+            DNSTT_REMOTE_ARGS=(-doh "https://cloudflare-dns.com/dns-query")
+            TRANSPORT_LABEL="DoH Cloudflare"
+            ;;
+        dot-google)
+            DNSTT_REMOTE_ARGS=(-dot "8.8.8.8:853")
+            TRANSPORT_LABEL="DoT Google"
+            ;;
+        dot-cloudflare)
+            DNSTT_REMOTE_ARGS=(-dot "1.1.1.1:853")
+            TRANSPORT_LABEL="DoT Cloudflare"
+            ;;
+        udp)
+            value="$(resolver_value "${value:-$DNS_RESOLVER}")"
+            DNSTT_REMOTE_ARGS=(-udp "$value:53")
+            TRANSPORT_LABEL="UDP $value:53"
+            ;;
+        doh)
+            value="${value:-$DOH_URL}"
+            DNSTT_REMOTE_ARGS=(-doh "$value")
+            TRANSPORT_LABEL="DoH $value"
+            ;;
+        dot)
+            value="${value:-$DOT_ADDR}"
+            DNSTT_REMOTE_ARGS=(-dot "$value")
+            TRANSPORT_LABEL="DoT $value"
+            ;;
+        "")
+            transport_args "$DEFAULT_TRANSPORT" ""
+            ;;
+        *)
+            value="$(resolver_value "$profile")"
+            DNSTT_REMOTE_ARGS=(-udp "$value:53")
+            TRANSPORT_LABEL="UDP $value:53"
+            ;;
+    esac
+}
+
 start_tunnel() {
     need_bin
-    load_config
+    load_config || return 1
 
     if is_running; then
         say "${yellow}SlowDNS já está rodando (PID $(cat "$PID_FILE")).${reset}"
         return 0
     fi
 
-    local resolver
-    resolver="$(resolver_value "${1:-}")"
+    transport_args "${1:-}" "${2:-}"
     : > "$LOG_FILE"
 
     say "${blue}Iniciando DNSTT...${reset}"
-    say "Domínio : $TUNNEL_DOMAIN"
-    say "Resolver: $resolver:53"
-    say "Local   : $LOCAL_ADDR"
+    say "Domínio   : $TUNNEL_DOMAIN"
+    say "Transporte: $TRANSPORT_LABEL"
+    say "Local     : $LOCAL_ADDR"
 
     nohup "$DNSTT_BIN" \
-        -udp "$resolver:53" \
         -pubkey "$PUBKEY" \
+        "${DNSTT_REMOTE_ARGS[@]}" \
         "$TUNNEL_DOMAIN" \
         "$LOCAL_ADDR" >>"$LOG_FILE" 2>&1 &
 
     echo $! > "$PID_FILE"
+    printf '%s\n' "$TRANSPORT_LABEL" > "$LAST_FILE"
     sleep 1
 
     if is_running; then
         say "${green}SlowDNS iniciado (PID $(cat "$PID_FILE")).${reset}"
         say "Log: $LOG_FILE"
-        say "Exemplo SSH: ssh -p ${LOCAL_ADDR##*:} usuario@127.0.0.1"
+        say "Endpoint TCP local: $LOCAL_ADDR"
     else
         say "${red}Falha ao iniciar.${reset}"
         rm -f "$PID_FILE"
@@ -160,7 +269,14 @@ stop_tunnel() {
 
 status_tunnel() {
     if is_running; then
-        say "${green}SlowDNS ativo (PID $(cat "$PID_FILE")).${reset}"
+        say "${green}SlowDNS ativo${reset}"
+        echo "PID       : $(cat "$PID_FILE")"
+        [[ -f "$LAST_FILE" ]] && echo "Transporte: $(cat "$LAST_FILE")"
+        if [[ -f "$CONFIG_FILE" ]]; then
+            load_config >/dev/null 2>&1 || true
+            echo "Domínio   : ${TUNNEL_DOMAIN:-?}"
+            echo "Local     : ${LOCAL_ADDR:-?}"
+        fi
     else
         say "${yellow}SlowDNS parado.${reset}"
         rm -f "$PID_FILE"
@@ -169,23 +285,75 @@ status_tunnel() {
 
 show_log() {
     touch "$LOG_FILE"
-    tail -n 60 "$LOG_FILE"
+    tail -n 80 "$LOG_FILE"
+}
+
+doctor() {
+    local problems=0
+    say "${cyan}=== SlowDNS Doctor ===${reset}"
+    echo "Versão: $VERSION"
+
+    if [[ -x "$DNSTT_BIN" ]]; then
+        say "${green}[OK]${reset} dnstt-client: $DNSTT_BIN"
+    else
+        say "${red}[ERRO]${reset} dnstt-client não instalado"
+        problems=$((problems + 1))
+    fi
+
+    if [[ -f "$CONFIG_FILE" ]]; then
+        if load_config >/dev/null 2>&1; then
+            say "${green}[OK]${reset} configuração carregada"
+        else
+            say "${red}[ERRO]${reset} configuração inválida"
+            problems=$((problems + 1))
+        fi
+    else
+        say "${red}[ERRO]${reset} configuração ainda não existe"
+        problems=$((problems + 1))
+    fi
+
+    if command -v nslookup >/dev/null 2>&1 && [[ -n "${TUNNEL_DOMAIN:-}" ]]; then
+        if nslookup -type=ns "$TUNNEL_DOMAIN" "${DNS_RESOLVER:-8.8.8.8}" >/dev/null 2>&1; then
+            say "${green}[OK]${reset} consulta NS do domínio respondeu"
+        else
+            say "${yellow}[AVISO]${reset} não consegui consultar a delegação NS usando ${DNS_RESOLVER:-8.8.8.8}"
+        fi
+    else
+        say "${yellow}[AVISO]${reset} nslookup indisponível ou domínio não configurado"
+    fi
+
+    if is_running; then
+        say "${green}[OK]${reset} processo DNSTT está ativo"
+    else
+        say "${yellow}[INFO]${reset} túnel não está iniciado"
+    fi
+
+    echo
+    if (( problems == 0 )); then
+        say "${green}Diagnóstico local concluído sem erros críticos.${reset}"
+        echo "Isso valida o cliente/configuração; a conexão ponta a ponta depende da VPS e da delegação DNS."
+        return 0
+    fi
+    say "${red}Foram encontrados $problems erro(s) crítico(s).${reset}"
+    return 1
 }
 
 menu() {
     while true; do
         clear
         say "${blue}=====================================${reset}"
-        say "${blue}          SLOWDNS / DNSTT            ${reset}"
+        say "${blue}       SrTriste SlowDNS v$VERSION     ${reset}"
         say "${blue}=====================================${reset}"
-        echo "1) Conectar - Google DNS"
-        echo "2) Conectar - Cloudflare"
-        echo "3) Conectar - Quad9"
-        echo "4) Conectar - OpenDNS"
-        echo "5) Configurar servidor"
-        echo "6) Status"
-        echo "7) Ver log"
-        echo "8) Desconectar"
+        echo "1) Conectar - Google DNS (UDP)"
+        echo "2) Conectar - Cloudflare (UDP)"
+        echo "3) Conectar - Quad9 (UDP)"
+        echo "4) Conectar - OpenDNS (UDP)"
+        echo "5) Conectar - DoH Google"
+        echo "6) Conectar - DoH Cloudflare"
+        echo "7) Configurar servidor"
+        echo "8) Diagnóstico"
+        echo "9) Status / log"
+        echo "10) Desconectar"
         echo "0) Sair"
         echo
         read -r -p "Escolha: " option
@@ -194,10 +362,12 @@ menu() {
             2) start_tunnel cloudflare ;;
             3) start_tunnel quad9 ;;
             4) start_tunnel opendns ;;
-            5) configure ;;
-            6) status_tunnel ;;
-            7) show_log ;;
-            8) stop_tunnel ;;
+            5) start_tunnel doh-google ;;
+            6) start_tunnel doh-cloudflare ;;
+            7) configure ;;
+            8) doctor ;;
+            9) status_tunnel; echo; show_log ;;
+            10) stop_tunnel ;;
             0) exit 0 ;;
             *) say "${red}Opção inválida.${reset}" ;;
         esac
@@ -207,15 +377,15 @@ menu() {
 }
 
 case "${1:-menu}" in
-    start|connect) start_tunnel "${2:-}" ;;
+    start|connect) start_tunnel "${2:-}" "${3:-}" ;;
     stop|disconnect) stop_tunnel ;;
-    restart) stop_tunnel; start_tunnel "${2:-}" ;;
+    restart) stop_tunnel; start_tunnel "${2:-}" "${3:-}" ;;
     status) status_tunnel ;;
     config|configure) configure ;;
+    doctor|check) doctor ;;
     log|logs) show_log ;;
+    version|--version|-v) echo "SlowDNS $VERSION" ;;
+    help|--help|-h) usage ;;
     menu) menu ;;
-    *)
-        echo "Uso: slowdns {start [google|cloudflare|quad9|opendns|IP]|stop|restart|status|config|log|menu}"
-        exit 1
-        ;;
+    *) usage; exit 1 ;;
 esac
