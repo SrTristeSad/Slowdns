@@ -9,19 +9,30 @@ fi
 TUNNEL_DOMAIN="${1:-}"
 BACKEND="${2:-127.0.0.1:22}"
 LISTEN_ADDR="${DNSTT_LISTEN_ADDR:-:53}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -z "$TUNNEL_DOMAIN" ]]; then
     echo "Uso: sudo bash server/install.sh t.seudominio.com [127.0.0.1:22]"
     exit 1
 fi
 
+if [[ ! "$TUNNEL_DOMAIN" =~ ^([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]]; then
+    echo "Domínio inválido: $TUNNEL_DOMAIN"
+    exit 1
+fi
+
+if [[ "$BACKEND" != *:* ]]; then
+    echo "Backend inválido. Use host:porta, por exemplo 127.0.0.1:22"
+    exit 1
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 
-echo "[1/6] Instalando dependências..."
+echo "[1/7] Instalando dependências..."
 apt-get update
-apt-get install -y golang-go ca-certificates
+apt-get install -y golang-go ca-certificates dnsutils iproute2
 
-echo "[2/6] Instalando dnstt-server atual..."
+echo "[2/7] Instalando dnstt-server atual..."
 GOBIN=/usr/local/bin go install www.bamsoftware.com/git/dnstt.git/dnstt-server@latest
 chmod 755 /usr/local/bin/dnstt-server
 
@@ -32,25 +43,29 @@ fi
 install -d -m 750 -o dnstt -g dnstt /etc/dnstt
 printf '%s\n' "$TUNNEL_DOMAIN" > /etc/dnstt/domain
 printf '%s\n' "$BACKEND" > /etc/dnstt/backend
-chmod 640 /etc/dnstt/domain /etc/dnstt/backend
-chown dnstt:dnstt /etc/dnstt/domain /etc/dnstt/backend
+printf '%s\n' "$LISTEN_ADDR" > /etc/dnstt/listen
+chmod 640 /etc/dnstt/domain /etc/dnstt/backend /etc/dnstt/listen
+chown dnstt:dnstt /etc/dnstt/domain /etc/dnstt/backend /etc/dnstt/listen
 
-echo "[3/6] Gerando chaves..."
+echo "[3/7] Preparando chaves..."
 if [[ ! -s /etc/dnstt/server.key || ! -s /etc/dnstt/server.pub ]]; then
     rm -f /etc/dnstt/server.key /etc/dnstt/server.pub
     runuser -u dnstt -- /usr/local/bin/dnstt-server \
         -gen-key \
         -privkey-file /etc/dnstt/server.key \
         -pubkey-file /etc/dnstt/server.pub
+else
+    echo "Chaves existentes preservadas."
 fi
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 chown dnstt:dnstt /etc/dnstt/server.key /etc/dnstt/server.pub
 
-echo "[4/6] Criando serviço systemd..."
-cat > /etc/systemd/system/dnstt.service <<EOF
+echo "[4/7] Criando serviço systemd..."
+cat > /etc/systemd/system/dnstt.service <<EOF_SERVICE
 [Unit]
-Description=DNSTT DNS tunnel server
+Description=SlowDNS DNSTT server
+Documentation=https://github.com/SrTristeSad/Slowdns
 After=network-online.target
 Wants=network-online.target
 
@@ -75,48 +90,58 @@ LockPersonality=true
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF_SERVICE
 
-echo "[5/6] Ativando serviço..."
+echo "[5/7] Instalando diagnóstico..."
+if [[ -f "$SCRIPT_DIR/doctor.sh" ]]; then
+    install -m 755 "$SCRIPT_DIR/doctor.sh" /usr/local/sbin/slowdns-server-doctor
+fi
+
+echo "[6/7] Ativando serviço..."
 systemctl daemon-reload
-systemctl enable --now dnstt.service
+systemctl enable dnstt.service >/dev/null
+systemctl restart dnstt.service
 sleep 1
 
 if ! systemctl is-active --quiet dnstt.service; then
-    echo "Falha ao iniciar dnstt.service. Verifique se a porta UDP/53 já está em uso:"
+    echo "Falha ao iniciar dnstt.service."
+    echo "Verifique se UDP/53 já está ocupado por outro serviço:"
     ss -lunp 2>/dev/null | grep ':53 ' || true
+    echo
     journalctl -u dnstt.service -n 40 --no-pager || true
     exit 1
 fi
 
-echo "[6/6] Instalação concluída."
+echo "[7/7] Instalação concluída."
 echo
 PUBKEY="$(tr -d '[:space:]' < /etc/dnstt/server.pub)"
-cat <<EOF
+cat <<EOF_SUMMARY
 ============================================================
-DNSTT ativo
+SlowDNS / DNSTT ativo
 Domínio do túnel : $TUNNEL_DOMAIN
 Backend TCP       : $BACKEND
 Escutando em      : $LISTEN_ADDR/udp
 Public key        : $PUBKEY
 ============================================================
 
-No DNS do seu domínio, faça uma delegação de subdomínio.
-Exemplo para t.exemplo.com e uma VPS 203.0.113.10:
+No DNS do seu domínio, delegue o subdomínio do túnel.
+Exemplo para t.exemplo.com e VPS 203.0.113.10:
 
   A   tns.exemplo.com   203.0.113.10
   NS  t.exemplo.com     tns.exemplo.com
 
-O nome do servidor autoritativo (tns) deve ficar fora da zona delegada.
-Confirme também que UDP/53 está liberado no firewall da sua VPS/provedora.
+O hostname do nameserver deve ficar fora da zona delegada.
+Confirme também que UDP/53 está permitido na VPS/provedor.
 
-No Termux, execute:
+Cliente Termux:
   slowdns config
 
-e informe o domínio e a public key mostrada acima.
+Diagnóstico do servidor:
+  sudo slowdns-server-doctor
 
 Status:
   systemctl status dnstt --no-pager
+
 Logs:
   journalctl -u dnstt -f
-EOF
+EOF_SUMMARY
