@@ -18,9 +18,15 @@ if [[ -r "$VERSION_FILE" ]]; then
 fi
 
 cleanup() {
-    [[ -n "$CLIENT_PID" ]] && kill "$CLIENT_PID" 2>/dev/null || true
-    [[ -n "$SERVER_PID" ]] && kill "$SERVER_PID" 2>/dev/null || true
-    [[ -n "$HTTP_PID" ]] && kill "$HTTP_PID" 2>/dev/null || true
+    if [[ -n "$CLIENT_PID" ]]; then
+        kill "$CLIENT_PID" 2>/dev/null || true
+    fi
+    if [[ -n "$SERVER_PID" ]]; then
+        kill "$SERVER_PID" 2>/dev/null || true
+    fi
+    if [[ -n "$HTTP_PID" ]]; then
+        kill "$HTTP_PID" 2>/dev/null || true
+    fi
     rm -rf "$TMPDIR_SLOWDNS"
 }
 trap cleanup EXIT INT TERM
