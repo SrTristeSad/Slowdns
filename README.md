@@ -1,28 +1,93 @@
 # SrTriste SlowDNS
 
-Projeto SlowDNS original de 2021 revivido para o ambiente atual usando **DNSTT**.
+[![SlowDNS CI](https://github.com/SrTristeSad/Slowdns/actions/workflows/ci.yml/badge.svg)](https://github.com/SrTristeSad/Slowdns/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A proposta continua a mesma do projeto antigo: transportar uma conexão TCP através de consultas DNS, mas a implementação foi reorganizada em cliente, servidor e laboratório, com configuração persistente, diagnóstico e suporte aos transportes modernos do DNSTT.
+SlowDNS é um projeto de túnel **TCP sobre DNS** baseado em [DNSTT](https://www.bamsoftware.com/software/dnstt/), originalmente criado neste repositório em 2021 e retomado em 2026 com uma implementação nova, organizada e testável.
 
-> Use somente em redes, domínios e servidores que você administra ou tem autorização para testar. O projeto não promete internet gratuita, não altera cobrança de operadora e não depende de uma falha específica de rede.
+A versão atual fornece cliente para **Android/Termux**, instalador de servidor para **Debian/Ubuntu**, configuração persistente, diagnóstico, suporte a UDP/DoH/DoT no cliente e um laboratório local para validar o túnel ponta a ponta sem depender de domínio ou VPS.
 
-## O que voltou à vida
+> **Uso responsável:** utilize somente em redes, domínios e servidores que você administra ou nos quais possui autorização. SlowDNS não promete “internet grátis”, não altera cobrança de operadora e não depende de uma falha específica de provedor.
 
-- Cliente moderno para Termux.
-- DNSTT instalado diretamente da versão atual via Go.
-- Perfis UDP para Google, Cloudflare, Quad9 e OpenDNS.
-- DNS-over-HTTPS (DoH) e DNS-over-TLS (DoT).
-- DNS/resolver personalizado.
-- Configuração persistente em `~/.config/slowdns`.
-- `start`, `stop`, `restart`, `status`, `logs` e `doctor`.
-- Instalador de servidor para Debian/Ubuntu.
-- Serviço `systemd` com usuário dedicado `dnstt`.
-- Geração e preservação de chaves do servidor.
-- Diagnóstico do servidor.
-- Laboratório local ponta a ponta que não exige domínio nem VPS.
-- Scripts de 2021 preservados como referência histórica.
+---
 
-## Arquitetura
+## Estado do projeto
+
+| Item | Estado |
+|---|---|
+| Cliente Termux | Implementado |
+| Servidor Debian/Ubuntu | Implementado |
+| Transporte DNS/UDP | Implementado e coberto pelo teste local |
+| DNS-over-HTTPS (DoH) | Implementado no cliente |
+| DNS-over-TLS (DoT) | Implementado no cliente |
+| Configuração persistente | Implementada |
+| Serviço `systemd` | Implementado |
+| Diagnóstico cliente/servidor | Implementado |
+| Teste local ponta a ponta | Implementado |
+| CI no GitHub Actions | Ativo |
+
+O workflow de CI valida a sintaxe Bash dos scripts atuais e executa `lab/local-test.sh`, que cria cliente, servidor e backend temporários e confirma tráfego TCP através do túnel DNSTT.
+
+Isso comprova o funcionamento do núcleo em ambiente Linux de CI. Uma instalação real ainda depende da configuração correta de DNS, firewall, UDP/53, VPS, domínio e backend escolhidos pelo administrador.
+
+---
+
+# Versão atual e versão histórica
+
+O repositório contém **duas gerações diferentes** do projeto. Elas são preservadas separadamente na documentação para evitar confusão.
+
+## Atual — SlowDNS 3.x (2026)
+
+Esta é a versão recomendada.
+
+Arquivos principais:
+
+```text
+slowdns
+client/install-termux.sh
+server/install.sh
+server/doctor.sh
+lab/local-test.sh
+.github/workflows/ci.yml
+```
+
+Características:
+
+- cliente moderno para Termux;
+- instalação atual do `dnstt-client` via Go;
+- servidor `dnstt-server` para Debian/Ubuntu;
+- perfis UDP para Google, Cloudflare, Quad9 e OpenDNS;
+- suporte a DoH e DoT no cliente;
+- resolver personalizado;
+- configuração persistente em `~/.config/slowdns`;
+- comandos `start`, `stop`, `restart`, `status`, `logs`, `doctor`, `config` e `version`;
+- serviço `systemd` no servidor;
+- usuário de serviço dedicado `dnstt`;
+- geração e preservação das chaves do servidor;
+- laboratório local ponta a ponta;
+- CI automática.
+
+## Legado — scripts de 2021
+
+Os arquivos abaixo pertencem à geração antiga e são mantidos **somente como referência histórica**:
+
+```text
+slowdns.txt
+robinhood
+RobinHood.txt
+```
+
+Esses arquivos podem conter procedimentos, domínios, resolvers, chaves ou práticas que fizeram sentido no projeto original, mas **não representam a instalação recomendada atualmente**.
+
+Para uma instalação nova, use exclusivamente os arquivos da versão 3.x descritos neste README.
+
+---
+
+# O que o SlowDNS faz
+
+O DNSTT encapsula um fluxo TCP dentro de mensagens DNS.
+
+Em uma instalação típica:
 
 ```text
 Aplicação TCP local
@@ -32,7 +97,7 @@ Aplicação TCP local
         |
         | consultas DNS
         v
- Resolver recursivo
+ Resolver DNS
         |
         v
  subdomínio delegado
@@ -41,16 +106,49 @@ Aplicação TCP local
   dnstt-server
         |
         v
- Backend TCP (ex.: SSH)
+ Backend TCP
 ```
 
-O DNSTT encapsula fluxos TCP em mensagens DNS. O cliente pode falar com o resolver usando UDP, DoH ou DoT. O servidor recebe as consultas destinadas ao subdomínio delegado e encaminha o fluxo reconstruído para um backend TCP configurado.
+Exemplo usando SSH:
 
-## Teste local primeiro
+```text
+ssh -> 127.0.0.1:2222
+        |
+        v
+   dnstt-client
+        |
+        v
+      DNS
+        |
+        v
+   dnstt-server
+        |
+        v
+  127.0.0.1:22
+```
 
-Antes de configurar domínio ou VPS, é possível comprovar o túnel na própria máquina Linux.
+A aplicação local não precisa entender DNS tunneling. Ela conversa com uma porta TCP local e o DNSTT transporta esse fluxo até o backend TCP configurado na VPS.
 
-Requisitos: `go`, `curl` e `python3`.
+## O que ele não é
+
+SlowDNS, sozinho, **não é uma VPN IP completa**. O projeto cria um encaminhamento TCP através do DNSTT.
+
+Protocolos ou aplicações que precisem de um túnel IP completo, UDP arbitrário ou roteamento de todo o dispositivo precisam de uma camada adicional apropriada.
+
+---
+
+# Teste local antes de instalar
+
+O laboratório permite verificar o núcleo do projeto sem domínio, VPS ou alteração permanente no sistema.
+
+Requisitos:
+
+- Linux;
+- Go;
+- `curl`;
+- `python3`.
+
+Execute:
 
 ```bash
 git clone https://github.com/SrTristeSad/Slowdns.git
@@ -58,7 +156,7 @@ cd Slowdns
 bash lab/local-test.sh
 ```
 
-O teste cria temporariamente:
+O laboratório monta temporariamente:
 
 ```text
 curl :18081
@@ -68,13 +166,14 @@ curl :18081
    -> servidor HTTP :18080
 ```
 
-Ao final, a saída esperada é:
+Resultado esperado:
 
 ```text
 OK: túnel DNSTT local funcionando ponta a ponta.
+HTTP -> dnstt-client -> DNS/UDP -> dnstt-server -> HTTP
 ```
 
-Nada é instalado permanentemente por esse teste.
+Os binários e arquivos gerados pelo laboratório ficam em um diretório temporário e são removidos ao final.
 
 ---
 
@@ -82,31 +181,51 @@ Nada é instalado permanentemente por esse teste.
 
 ## 1. Requisitos do servidor
 
-- VPS Debian/Ubuntu com acesso root.
-- Domínio próprio com controle dos registros DNS.
-- UDP/53 disponível na VPS.
-- Um backend TCP para receber a conexão, por padrão `127.0.0.1:22` (SSH).
+Você precisa de:
 
-## 2. Delegação DNS
+- VPS Debian/Ubuntu;
+- acesso `root` ou `sudo`;
+- domínio próprio;
+- controle dos registros DNS;
+- UDP/53 disponível na VPS;
+- backend TCP para receber a conexão.
+
+O backend padrão do instalador é:
+
+```text
+127.0.0.1:22
+```
+
+ou seja, SSH local da própria VPS.
+
+---
+
+## 2. Delegar um subdomínio DNS
 
 Exemplo:
 
-- domínio: `exemplo.com`
-- túnel: `t.exemplo.com`
-- IPv4 da VPS: `203.0.113.10`
+```text
+Domínio: exemplo.com
+Túnel:   t.exemplo.com
+VPS:     203.0.113.10
+```
 
-Crie no provedor DNS:
+Crie registros equivalentes a:
 
 ```dns
 A   tns.exemplo.com   203.0.113.10
 NS  t.exemplo.com     tns.exemplo.com
 ```
 
-O hostname do nameserver (`tns.exemplo.com`) fica fora da zona que está sendo delegada (`t.exemplo.com`).
+O hostname usado como nameserver deve ficar fora da zona delegada. No exemplo, `tns.exemplo.com` fica fora de `t.exemplo.com`.
 
-A propagação DNS pode levar algum tempo dependendo do provedor e do TTL.
+A propagação depende do provedor DNS e do TTL configurado.
+
+---
 
 ## 3. Instalar o servidor
+
+Na VPS:
 
 ```bash
 git clone https://github.com/SrTristeSad/Slowdns.git
@@ -114,49 +233,54 @@ cd Slowdns
 sudo bash server/install.sh t.exemplo.com 127.0.0.1:22
 ```
 
-O instalador:
+O instalador atual:
 
-1. instala as dependências;
-2. instala `dnstt-server@latest`;
-3. cria o usuário de serviço `dnstt`;
-4. gera o par de chaves na primeira instalação;
-5. cria `dnstt.service`;
-6. inicia o servidor em UDP/53;
-7. exibe a chave pública que será usada no Android.
+1. instala as dependências necessárias;
+2. instala `dnstt-server@latest` via Go;
+3. cria o usuário de serviço `dnstt` quando necessário;
+4. cria `/etc/dnstt`;
+5. gera o par de chaves na primeira instalação;
+6. preserva chaves já existentes em reinstalações;
+7. cria `dnstt.service`;
+8. inicia o DNSTT em UDP/53;
+9. mostra a chave pública necessária no cliente.
 
-Reexecutar o instalador **preserva as chaves existentes**.
+### Arquivos principais no servidor
 
-### Diagnóstico do servidor
+```text
+/etc/dnstt/server.key   chave privada
+/etc/dnstt/server.pub   chave pública
+/etc/dnstt/domain       domínio do túnel
+/etc/dnstt/backend      backend TCP
+/etc/dnstt/listen       endereço UDP de escuta
+```
+
+Nunca publique `server.key`.
+
+### Status e logs
+
+```bash
+systemctl status dnstt --no-pager
+journalctl -u dnstt -f
+```
+
+### Diagnóstico
 
 ```bash
 sudo slowdns-server-doctor
 ```
 
-Ou diretamente pelo repositório:
+ou, dentro do clone:
 
 ```bash
 sudo bash server/doctor.sh
 ```
 
-O diagnóstico verifica binário, chaves, serviço, UDP/53 e a delegação NS pública.
+O diagnóstico verifica itens como binário, chaves, serviço, UDP/53 e delegação DNS.
 
-### Comandos úteis do servidor
+---
 
-```bash
-systemctl status dnstt --no-pager
-journalctl -u dnstt -f
-cat /etc/dnstt/server.pub
-```
-
-A chave privada fica em:
-
-```text
-/etc/dnstt/server.key
-```
-
-Não publique nem compartilhe essa chave.
-
-## 4. Instalar no Android / Termux
+# Instalação no Android / Termux
 
 Use uma versão atual do Termux.
 
@@ -167,35 +291,60 @@ cd Slowdns
 bash client/install-termux.sh
 ```
 
-Na primeira instalação, o configurador pede:
+O instalador:
+
+- atualiza o índice do Termux;
+- instala Go, Git, certificados, cURL, OpenSSH e ferramentas DNS;
+- instala `dnstt-client@latest`;
+- instala o comando `slowdns` em `$PREFIX/bin`;
+- preserva a configuração existente quando ela já existe;
+- abre a configuração inicial na primeira instalação.
+
+## Configuração inicial
+
+O cliente solicita:
 
 - domínio do túnel;
-- chave pública exibida pela VPS;
-- resolver UDP padrão;
+- chave pública do servidor;
+- resolver DNS UDP padrão;
 - endereço TCP local;
 - transporte padrão;
-- endpoint DoH/DoT opcional.
+- endpoint DoH;
+- endpoint DoT.
 
-Depois basta executar:
+A configuração fica em:
+
+```text
+~/.config/slowdns/config
+```
+
+com permissão restrita ao usuário.
+
+---
+
+# Uso do cliente
+
+Abrir o menu:
 
 ```bash
 slowdns
 ```
 
-## Comandos do cliente
+Comandos principais:
 
 ```bash
-slowdns
 slowdns config
+slowdns start
+slowdns stop
+slowdns restart
 slowdns status
 slowdns doctor
 slowdns logs
-slowdns stop
 slowdns version
 slowdns help
 ```
 
-### UDP clássico
+## Perfis UDP
 
 ```bash
 slowdns start google
@@ -204,13 +353,13 @@ slowdns start quad9
 slowdns start opendns
 ```
 
-DNS personalizado:
+Resolver personalizado:
 
 ```bash
 slowdns start udp 192.0.2.53
 ```
 
-### DoH
+## DNS-over-HTTPS
 
 ```bash
 slowdns start doh-google
@@ -223,7 +372,7 @@ Endpoint personalizado:
 slowdns start doh https://resolver.exemplo/dns-query
 ```
 
-### DoT
+## DNS-over-TLS
 
 ```bash
 slowdns start dot-google
@@ -236,29 +385,54 @@ Endpoint personalizado:
 slowdns start dot resolver.exemplo:853
 ```
 
-## Testar o backend SSH
+> O CI atual testa automaticamente o caminho DNS/UDP local. DoH e DoT estão implementados no cliente, mas não fazem parte desse teste ponta a ponta automatizado.
 
-Com o servidor apontando para `127.0.0.1:22` e o cliente usando o padrão `127.0.0.1:2222`:
+---
+
+# Exemplo com SSH
+
+Com o servidor configurado para:
+
+```text
+127.0.0.1:22
+```
+
+e o cliente usando:
+
+```text
+127.0.0.1:2222
+```
+
+inicie o túnel:
 
 ```bash
 slowdns start google
+```
+
+Depois conecte o SSH à porta local:
+
+```bash
 ssh -p 2222 usuario@127.0.0.1
 ```
 
-A aplicação SSH fala apenas com a porta TCP local. O DNSTT transporta o fluxo até o backend configurado na VPS.
+O SSH se conecta apenas ao endpoint TCP local; o DNSTT transporta o fluxo até o backend configurado na VPS.
 
-## Atualizar
+---
 
-No clone local:
+# Atualização
+
+## Cliente
+
+Dentro do clone:
 
 ```bash
 git pull
 bash client/install-termux.sh
 ```
 
-O instalador preserva `~/.config/slowdns/config` quando já existe.
+Se `~/.config/slowdns/config` já existir, o instalador o preserva.
 
-No servidor:
+## Servidor
 
 ```bash
 cd Slowdns
@@ -266,46 +440,117 @@ git pull
 sudo bash server/install.sh t.exemplo.com 127.0.0.1:22
 ```
 
-As chaves existentes em `/etc/dnstt` são mantidas.
+As chaves existentes em `/etc/dnstt` são preservadas quando já estão presentes.
 
-## Estrutura
+---
+
+# Estrutura do repositório
 
 ```text
 Slowdns/
-├── slowdns                    # cliente principal / menu
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # testes automáticos
 ├── client/
-│   └── install-termux.sh      # instalador Android/Termux
+│   └── install-termux.sh       # instalador do cliente atual
 ├── server/
-│   ├── install.sh             # instalador Debian/Ubuntu
-│   └── doctor.sh              # diagnóstico da VPS
+│   ├── install.sh              # instalador atual da VPS
+│   └── doctor.sh               # diagnóstico do servidor
 ├── lab/
-│   └── local-test.sh          # teste ponta a ponta local
-├── slowdns.txt                # versão histórica de 2021
-├── robinhood                  # base histórica
-└── RobinHood.txt              # base histórica
+│   └── local-test.sh           # teste DNSTT ponta a ponta local
+├── slowdns                     # cliente atual / menu / CLI
+├── CHANGELOG.md
+├── README.md
+├── LICENSE
+│
+├── slowdns.txt                 # legado de 2021
+├── robinhood                   # legado de 2021
+└── RobinHood.txt               # legado de 2021
 ```
 
-## Versão histórica de 2021
+---
 
-O repositório original usava domínio, chave e resolvers fixos dentro do próprio script e compilava o DNSTT diretamente no Termux. Esses arquivos continuam no Git para preservar a história do projeto.
+# Diagnóstico de problemas
 
-A versão atual não depende de `t.srtriste.cloudns.cl`, `t.rgntunnel.online` nem das antigas chaves gravadas nos scripts.
+No cliente:
 
-## Limitações
+```bash
+slowdns doctor
+slowdns status
+slowdns logs
+```
 
-DNS tunneling possui bastante overhead. Ele normalmente terá maior latência e menor throughput que uma conexão TCP/UDP direta. O desempenho também depende do resolver, TTLs, MTU, rede e política do provedor.
+No servidor:
 
-O SlowDNS não é, sozinho, uma VPN IP completa. O DNSTT cria um encaminhamento **TCP** entre uma porta local e o backend configurado no servidor. SSH, proxies ou outros serviços TCP podem ser usados por cima dele quando isso fizer sentido.
+```bash
+sudo slowdns-server-doctor
+systemctl status dnstt --no-pager
+journalctl -u dnstt -n 100 --no-pager
+```
 
-## Segurança
+Problemas comuns em uma implantação real incluem:
 
-- Mantenha a chave privada apenas na VPS.
-- Não execute scripts desconhecidos como root.
-- Revise o conteúdo de `server/install.sh` antes da instalação.
-- Mantenha Termux, Go e o sistema da VPS atualizados.
-- Restrinja os outros serviços da VPS normalmente; o túnel não substitui firewall nem autenticação.
-- Use somente infraestrutura e redes em que você tenha autorização.
+- UDP/53 bloqueado pelo provedor ou firewall;
+- outro serviço já ocupando a porta 53;
+- delegação NS incorreta;
+- DNS ainda não propagado;
+- chave pública diferente da chave da VPS;
+- domínio do cliente diferente do configurado no servidor;
+- backend TCP indisponível.
 
-## Origem
+---
 
-Este repositório começou como um pequeno script SlowDNS em 2021 e foi retomado em 2026 mantendo a ideia e a interface simples do projeto original, mas substituindo dependências e práticas antigas por uma estrutura atualizável.
+# Limitações
+
+DNS tunneling possui overhead considerável. Normalmente haverá maior latência e menor throughput do que em uma conexão TCP/UDP direta.
+
+O desempenho depende, entre outros fatores, de:
+
+- resolver utilizado;
+- rede entre cliente e resolver;
+- MTU;
+- comportamento do provedor DNS;
+- latência da VPS;
+- backend TCP;
+- políticas da rede.
+
+Não existe garantia de funcionamento em qualquer rede.
+
+---
+
+# Segurança
+
+- mantenha a chave privada somente na VPS;
+- não compartilhe `/etc/dnstt/server.key`;
+- mantenha Termux, Go e o sistema da VPS atualizados;
+- revise scripts antes de executá-los como `root`;
+- mantenha autenticação e firewall do backend normalmente;
+- não trate o túnel como substituto de controles de segurança;
+- use somente infraestrutura e redes nas quais você tenha autorização.
+
+---
+
+# Dependência principal
+
+Este projeto utiliza DNSTT como componente de transporte:
+
+- projeto: `www.bamsoftware.com/software/dnstt/`
+- instalação pelo código atual: `www.bamsoftware.com/git/dnstt.git/...@latest`
+
+O DNSTT é um projeto independente e continua sujeito à licença e aos termos do próprio projeto.
+
+---
+
+# Licença
+
+O código próprio deste repositório é disponibilizado sob a **MIT License**. Consulte o arquivo [`LICENSE`](LICENSE).
+
+Componentes e dependências externas continuam sujeitos às respectivas licenças.
+
+---
+
+# Histórico
+
+O SlowDNS começou neste repositório como um conjunto simples de scripts em 2021. Em 2026, o projeto foi retomado como SlowDNS 3.x, preservando os arquivos históricos, mas substituindo a instalação e operação principal por uma estrutura moderna com cliente, servidor, diagnóstico, configuração persistente, laboratório local e CI.
+
+Para mudanças por versão, consulte [`CHANGELOG.md`](CHANGELOG.md).
