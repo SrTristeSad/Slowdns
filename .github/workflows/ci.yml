@@ -19,13 +19,40 @@ jobs:
         with:
           go-version: '1.23.x'
 
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
       - name: Validate Bash syntax
         run: |
+          bash -n install.sh
           bash -n current/slowdns
           bash -n current/client/install-termux.sh
+          bash -n current/client/uninstall.sh
           bash -n current/server/install.sh
           bash -n current/server/doctor.sh
+          bash -n current/server/uninstall.sh
           bash -n current/lab/local-test.sh
+
+      - name: ShellCheck
+        run: |
+          shellcheck install.sh
+          shellcheck current/slowdns
+          shellcheck current/client/install-termux.sh
+          shellcheck current/client/uninstall.sh
+          shellcheck current/server/install.sh
+          shellcheck current/server/doctor.sh
+          shellcheck current/server/uninstall.sh
+          shellcheck current/lab/local-test.sh
+
+      - name: Verify DNSTT pin
+        run: |
+          test "$(tr -d '[:space:]' < current/DNSTT_VERSION)" = "v1.20260501.0"
+          if grep -R --line-number --fixed-strings '@latest' current --include='*.sh'; then
+            echo "Erro: script atual ainda usa @latest."
+            exit 1
+          fi
 
       - name: Run local DNSTT tunnel test
         run: bash current/lab/local-test.sh
