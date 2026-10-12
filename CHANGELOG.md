@@ -23,15 +23,15 @@ Retomada do projeto SlowDNS original de 2021.
 - Usuário dedicado `dnstt`.
 - Serviço `systemd` com reinício automático e hardening básico.
 - Geração automática e preservação do par de chaves.
-- `server/doctor.sh` para diagnóstico de serviço, porta, chaves e DNS.
+- `current/server/doctor.sh` para diagnóstico de serviço, porta, chaves e DNS.
 
 ### Desenvolvimento
 
-- `lab/local-test.sh` para teste ponta a ponta sem domínio ou VPS.
+- `current/lab/local-test.sh` para teste ponta a ponta sem domínio ou VPS.
 - Workflow de CI para validar sintaxe e executar o laboratório local.
-- README completamente atualizado.
-- Scripts históricos de 2021 mantidos no repositório.
+- Código atual separado em `current/`.
+- Scripts históricos separados em `legacy/`.
 
 ## 2.x / 0.1 - 2021
 
-Versões históricas do script original, mantidas nos arquivos `slowdns.txt`, `robinhood` e `RobinHood.txt`.
+Versões históricas preservadas em `legacy/slowdns.txt`, `legacy/robinhood` e `legacy/RobinHood.txt`.

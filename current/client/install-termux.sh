@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
 
-REPO_RAW="https://raw.githubusercontent.com/SrTristeSad/Slowdns/main"
+REPO_RAW="https://raw.githubusercontent.com/SrTristeSad/Slowdns/main/current"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! command -v pkg >/dev/null 2>&1; then

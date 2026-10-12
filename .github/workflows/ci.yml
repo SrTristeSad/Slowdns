@@ -21,11 +21,11 @@ jobs:
 
       - name: Validate Bash syntax
         run: |
-          bash -n slowdns
-          bash -n client/install-termux.sh
-          bash -n server/install.sh
-          bash -n server/doctor.sh
-          bash -n lab/local-test.sh
+          bash -n current/slowdns
+          bash -n current/client/install-termux.sh
+          bash -n current/server/install.sh
+          bash -n current/server/doctor.sh
+          bash -n current/lab/local-test.sh
 
       - name: Run local DNSTT tunnel test
-        run: bash lab/local-test.sh
+        run: bash current/lab/local-test.sh
